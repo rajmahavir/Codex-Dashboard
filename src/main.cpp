@@ -35,6 +35,8 @@ uint32_t lastPoll = 0, lastGood = 0;
 uint8_t encSalt[16], encNonce[12], encTag[16];
 String encryptedBlob;
 
+bool fetchUsage();
+
 String htmlEscape(const String &s) {
   String o; o.reserve(s.length() + 8);
   for (char c : s) {
@@ -120,15 +122,10 @@ bool hexToBytes(const String &hex, uint8_t *out, size_t outLen) {
   return true;
 }
 bool deriveKey(const String &passphrase, const uint8_t *salt, uint8_t key[32]) {
-  const mbedtls_md_info_t *info = mbedtls_md_info_from_type(MBEDTLS_MD_SHA256);
-  if (!info) return false;
-  mbedtls_md_context_t ctx; mbedtls_md_init(&ctx);
-  int rc = mbedtls_md_setup(&ctx, info, 1);
-  if (rc == 0) rc = mbedtls_pkcs5_pbkdf2_hmac(&ctx,
+  return mbedtls_pkcs5_pbkdf2_hmac_ext(
+      MBEDTLS_MD_SHA256,
       (const unsigned char*)passphrase.c_str(), passphrase.length(),
-      salt, 16, PBKDF2_ITERATIONS, 32, key);
-  mbedtls_md_free(&ctx);
-  return rc == 0;
+      salt, 16, PBKDF2_ITERATIONS, 32, key) == 0;
 }
 bool encryptCredentials(const String &plain, const String &passphrase) {
   esp_fill_random(encSalt, sizeof(encSalt)); esp_fill_random(encNonce, sizeof(encNonce));
@@ -324,7 +321,7 @@ bool fetchUsage() {
   if (!authUnlocked || accessToken.length() < 20) { statusText = "Unlock credentials first"; drawStatusScreen(); return false; }
   if (WiFi.status() != WL_CONNECTED) { statusText = "Wi-Fi disconnected"; drawStatusScreen(); return false; }
   WiFiClientSecure client;
-  client.setCACertBundle(x509_crt_bundle);
+  client.setCACertBundle(x509_crt_bundle, x509_crt_bundle_len);
   HTTPClient http; http.setTimeout(15000);
   if (!http.begin(client, USAGE_URL)) { statusText = "HTTPS init failed"; drawStatusScreen(); return false; }
   http.addHeader("Authorization", "Bearer " + accessToken);
