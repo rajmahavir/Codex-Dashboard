@@ -1,0 +1,41 @@
+name: Build ESP32-S3 firmware
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main, master]
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install PlatformIO
+        run: python -m pip install --upgrade platformio
+      - name: Build firmware
+        run: pio run -e esp32-s3-devkitc-1
+      - name: Package firmware and flashing files
+        shell: bash
+        run: |
+          mkdir -p artifact
+          cp .pio/build/esp32-s3-devkitc-1/firmware.bin artifact/
+          cp .pio/build/esp32-s3-devkitc-1/bootloader.bin artifact/ || true
+          cp .pio/build/esp32-s3-devkitc-1/partitions.bin artifact/ || true
+          cp .pio/build/esp32-s3-devkitc-1/firmware.elf artifact/ || true
+          cp platformio.ini artifact/
+          printf '%s\n' 'Firmware target: ESP32-S3 DevKitC-1 (Waveshare ESP32-S3 display board uses ESP32-S3; verify board-specific flash/layout before flashing).' > artifact/README.txt
+      - name: Upload firmware artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: codex-dashboard-esp32s3-firmware
+          path: artifact/*
+          if-no-files-found: error
+          retention-days: 30
