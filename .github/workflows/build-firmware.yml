@@ -20,6 +20,8 @@ jobs:
           python-version: '3.12'
       - name: Install PlatformIO
         run: python -m pip install --upgrade platformio
+      - name: Fetch pinned CA certificate bundle
+        run: curl --fail --location --retry 3 --output src/esp32_cert_bundle.h https://raw.githubusercontent.com/tanakamasayuki/ESP32CertBundle/30d77cfc6daae72e6c8afc332eef0c0f1409c637/src/esp32_cert_bundle.h
       - name: Build firmware
         run: pio run -e esp32-s3-devkitc-1
       - name: Package firmware and flashing files
