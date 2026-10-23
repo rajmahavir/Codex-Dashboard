@@ -1,52 +1,86 @@
-# Codex Dashboard — Standalone ESP32-S3 Usage Monitor
+# Codex Dashboard — ESP32-S3
 
-Firmware for a Waveshare ESP32-S3-LCD-1.47B-style board with a 172×320 ST7789 display. After flashing, it joins your 2.4 GHz Wi-Fi network, hosts a local web dashboard, and displays the usage windows on the LCD. No always-on Mac or Ubuntu server is needed.
+Standalone Codex usage monitor for the Waveshare ESP32-S3-LCD-1.47B family: a 172×320 ST7789 LCD, 16 MiB flash and 8 MiB OPI PSRAM. After Wi-Fi and account setup, it runs independently of a computer.
 
-## Build status
+## Current design
 
-A successful GitHub Actions build completed on 2026-10-22. The build produced `firmware.bin`, `bootloader.bin`, `partitions.bin`, and `firmware.elf`.
+The LCD and responsive webpage use Agency typography, a large blue **5h** panel, compact purple **Weekly** panel, segmented meters, reset countdowns and an orange chip-temperature tile. Percentages show allowance **left**. Portrait and phone layouts retain the five-hour focus.
 
-Successful build: https://github.com/rajmahavir/Codex-Dashboard/actions/runs/39747972792
+The LCD uses LVGL 8.3.11 and motion-based rotation. Tap BOOT for device details; hold it for three seconds and release to select ESPINFO in Slot A. Display updates run separately from HTTPS requests. The firmware uses an 80 MHz CPU, reduced backlight brightness and Wi-Fi modem sleep; these settings do not establish a thermal limit. Chip temperature is not ambient temperature.
 
-The artifact is named `codex-dashboard-esp32s3-firmware`. Open the workflow run above and download it under **Artifacts**. Artifacts expire after 30 days, but future successful runs publish a fresh one.
+- LCD layout: `src/CodexUi.c`, model: `src/CodexUi.h`.
+- Web layout: `web/dashboard.html` and `web/style.css`.
+- Fonts: `src/cx_font_*.c` and `web/fonts/`; provenance is documented alongside them.
+- Generated web assets: `src/WebAssets.h` and `src/WebFonts.h`, produced by `scripts/pack_web.py`.
+- The UI is hand-authored C, not a SquareLine Studio project.
 
-**Important:** `firmware.bin` is the application image, not a full factory image. Do not flash that single file at offset zero. Prefer PlatformIO's Upload target, which uses the matching board configuration and flash offsets. This is compile-verified; it has not yet been physically flashed or tested on the target board.
+## Setup
 
-## Build with PlatformIO
+1. Use the setup Wi-Fi name and password shown on your own board's LCD.
+2. Open the setup address shown on the LCD and save a 2.4 GHz Wi-Fi network.
+3. After connection, tap BOOT to see the assigned address and open it in a browser.
+4. In **Account credentials**, supply your own locally obtained Codex OAuth access token and account ID directly on the device page. Never commit or share them.
+5. Saved account credentials load automatically after restart. Older passphrase records request a one-time migration.
+6. In **Device settings → Wi-Fi networks**, add up to five networks and select their preferred order. Blank passwords retain an existing password; explicit open-network selection removes it.
 
-1. Install VS Code and the PlatformIO extension.
-2. Clone/download the project.
-3. Fetch the pinned CA certificate bundle header, then build:
+Saved networks are tried in priority order. Association allows 25 seconds; an associated router gets up to 90 seconds for DHCP. If all networks fail, setup mode opens and retries continue. Changing preferred order takes effect on the next connection; selecting Connect reconnects immediately.
+
+## Application slots
+
+This project targets the verified two-application layout in `partitions.csv`:
+
+| Slot | Address | Capacity | Application |
+|---|---|---|---|
+| A / app0 | 0x10000 | 3 MiB | Existing ESPINFO |
+| B / app1 | 0x310000 | 3 MiB | Codex Dashboard |
+
+Check your actual board layout and make private recovery backups before installation. Flash only the application image at **0x310000**, maximum **0x300000 bytes**, when this layout is confirmed. Do not flash generated merged, bootloader or partition images over an existing dual-app installation. Ordinary PlatformIO upload is blocked by this project.
+
+The physical BOOT gesture, webpage button and USB `BOOT_A` command select Slot A. To select an existing application from the ROM loader:
 
 ```sh
-curl --fail --location --retry 3 --output src/esp32_cert_bundle.h \
-  https://raw.githubusercontent.com/tanakamasayuki/ESP32CertBundle/30d77cfc6daae72e6c8afc332eef0c0f1409c637/src/esp32_cert_bundle.h
-pio run -e esp32-s3-devkitc-1
+python3 scripts/slot_tool.py B --port /dev/cu.YOUR_LOADER_PORT --enter-loader
 ```
 
-To flash over USB, use `pio run -e esp32-s3-devkitc-1 -t upload`.
+The helper supports macOS, checks the partition table and image header, backs up selection metadata and updates only the inactive selection sector. It never writes an application or NVS. Use `A` to select Slot A. If automatic loader entry fails, hold BOOT, press/release RESET, release BOOT, then use the detected loader port without `--enter-loader`. Selection persists across restart.
 
-## First boot setup
+## Build
 
-1. Open the serial monitor at 115200 baud.
-2. On first boot, the device starts a Wi-Fi access point named like `CodexSetup-A1B2C3`, with password `Setup-A1B2C3`. The actual values are printed on serial and the LCD.
-3. Connect your phone/computer to the AP and visit `http://192.168.4.1`.
-4. Enter your 2.4 GHz Wi-Fi credentials. After restart, open the device's LAN IP address (shown on serial and the LCD).
-5. Open **Configure Codex credentials** and enter the access token and account ID obtained from your own local Codex authentication session. Set an encryption passphrase of at least 10 characters.
+Pinned dependencies: Arduino ESP32 3.3.12, LovyanGFX 1.2.32, ArduinoJson 7.4.2 and LVGL 8.3.11. The local build helper expects a compatible toolchain; specify its directory with `--toolchain PATH`. Libraries belong under the Git-ignored `libraries/` directory.
 
-## Authentication caveat
+```sh
+mkdir -p libraries
+curl --fail --location --output /tmp/codex-arduinojson.zip \
+  https://codeload.github.com/bblanchon/ArduinoJson/zip/refs/tags/v7.4.2
+unzip -q /tmp/codex-arduinojson.zip -d libraries
+curl --fail --location --output /tmp/codex-lvgl.tar.gz \
+  https://codeload.github.com/lvgl/lvgl/tar.gz/refs/tags/v8.3.11
+tar -xzf /tmp/codex-lvgl.tar.gz -C libraries
+python3 scripts/build.py --toolchain /path/to/BuildTools
+python3 scripts/test_slots.py
+```
 
-There is no verified supported embedded “Sign in with ChatGPT” flow in this firmware. It does not request or store your ChatGPT password. It expects a Codex OAuth access token and account ID obtained locally from an existing Codex login. Authentication may be stored in `~/.codex/auth.json` or in the operating system's credential store, depending on setup. Never upload `auth.json`, paste tokens in a chat, or share them. Token refresh is not implemented.
+Output: `build/arduino/CodexDashboard.ino.bin`. Only this app image belongs in Slot B. PlatformIO is an alternative configuration that remains unverified. The GitHub workflow builds the pinned Arduino target and packages an app-only artifact.
 
-The device polls the undocumented endpoint `https://chatgpt.com/backend-api/wham/usage` about every three minutes. The endpoint and response shape can change, reject tokens, or return only one usage window. A successful build does not verify live authentication or API operation.
+## Preview and validation
 
-## Security
+```sh
+python3 scripts/preview_web.py
+python3 scripts/render_lvgl_design.py --fetch
+c++ -std=c++17 tests/orientation.cpp -o /tmp/codex-orientation-tests
+/tmp/codex-orientation-tests
+```
 
-- The token and account ID are encrypted in ESP32 NVS with AES-256-GCM; PBKDF2-HMAC-SHA256 derives the key from the passphrase. The passphrase itself is not stored, so it must be re-entered after reboot.
-- Wi-Fi credentials are stored separately in ESP32 Preferences/NVS.
-- The web UI uses HTTP on your local network. Do not port-forward it to the internet; use it only on a trusted LAN.
-- This is not hardware-backed secure storage. Flash encryption and secure boot are not enabled, and physical access to the board remains a risk.
+The web preview runs at http://127.0.0.1:8765 with synthetic data. Query cases `full`, `empty`, `missing`, `setup`, `error` and `long` exercise visual edge cases. Preview network values are fictional documentation examples. The host LVGL renderer checks production layout geometry, orientation changes and overlapping transitions.
 
-## Hardware
+USB diagnostics include `STATUS`, `SCREEN`, `DETAILS`, `PREVIEW 0..3`, `LIVE`, `TLS_TEST`, `STORAGE_TEST`, `WIFI_DIAG`, `WIFI_CONNECT <SSID>`, `WIFI_RESTORE` and `RESTART`. Preview mode never changes account or allowance data. Screenshots can include setup credentials when displayed; keep diagnostic captures private.
 
-ST7789, 172×320. Display pins used: MOSI 45, SCLK 40, CS 42, DC 41, RST 39, backlight 46. Libraries: TFT_eSPI and ArduinoJson.
+## Account and network security
+
+The firmware polls the undocumented Codex usage endpoint approximately every three minutes. Its schema and token acceptance may change. OAuth refresh and an embedded sign-in flow are not implemented. The firmware never requests your ChatGPT password.
+
+Account data is encrypted with AES-256-GCM using a random device key stored in NVS. This permits automatic startup but does not protect against an attacker who can read flash. Legacy passphrase migration verifies the replacement record before deleting the old one. Wi-Fi profiles use a separate namespace. Management status excludes tokens and Wi-Fi passwords.
+
+The device webpage uses HTTP on a trusted local network; do not expose it to the internet. Keep credentials, NVS images, recovery backups and deployment logs outside Git. The ignored `.local/`, `backups/` and `build/` directories retain private working artifacts.
+
+See `PROGRESS.md` for the public development checkpoint and font-source documents for asset provenance. Agency assets are not covered by the historical Rajdhani OFL notice.

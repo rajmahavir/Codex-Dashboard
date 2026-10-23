@@ -1,0 +1,55 @@
+<header class="topbar">
+  <div class="brand"><span class="wordmark">CODEX</span><span class="badge" id="plan">CODEX</span></div>
+  <div class="actions"><div class="status-row" role="status"><span class="dot" id="status-dot"></span><span id="connection">Connecting</span></div><a class="button settings-button" href="#settings" id="open-settings" aria-label="Device settings"><svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M4 7h16M4 17h16M8 4v6M16 14v6" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg><span class="label-settings">Settings</span></a></div>
+</header>
+<div class="section-heading"><h1>Usage remaining</h1><span class="live-caption">STANDALONE / SLOT B</span></div>
+<section class="auth-card" id="migration-panel" hidden><div><h3>Finish your account upgrade</h3><p>Enter your previous passphrase once to enable automatic startup. Future restarts need no passphrase.</p></div><form action="/migrate-auth" method="post"><input aria-label="Encryption passphrase" name="passphrase" type="password" minlength="10" required placeholder="Previous passphrase" autocomplete="current-password"><button class="primary">Finish upgrade</button></form></section>
+<section class="auth-card" id="setup-panel" hidden><div><h3>Make the connection</h3><p>Connect your Codex account to see your remaining allowance.</p></div><a class="button primary" href="/setup-auth">Connect Codex</a></section>
+<section class="quotas" aria-label="Remaining allowance">
+  <article class="quota-card primary-quota" id="short-card"><div class="card-head"><h2>5h left</h2><span class="window-caption">YOUR CURRENT WINDOW</span></div><div class="readout"><span class="number">--</span><span class="percent">%</span></div><div class="segments" role="progressbar" aria-label="5-hour allowance remaining" aria-valuemin="0" aria-valuemax="100"></div></article>
+  <article class="quota-card weekly-quota" id="weekly-card"><div class="card-head"><h2>Weekly left</h2></div><div class="readout"><span class="number">--</span><span class="percent">%</span></div><div class="segments" role="progressbar" aria-label="Weekly allowance remaining" aria-valuemin="0" aria-valuemax="100"></div></article>
+</section>
+<section class="stats" aria-label="Reset times and device temperature">
+  <article class="stat-card reset-short"><h2>Reset 5h</h2><div class="stat-value" id="short-reset">Awaiting data</div><div class="reset-date" id="short-date"></div></article>
+  <article class="stat-card reset-weekly"><h2>Reset week</h2><div class="stat-value" id="weekly-reset">Awaiting data</div><div class="reset-date" id="weekly-date"></div></article>
+  <article class="stat-card temperature-card"><h2>Device temp</h2><div class="stat-value" id="temperature-value">--</div><div class="stat-note">CHIP SENSOR</div></article>
+</section>
+<div class="underbar"><div class="freshness"><span class="dot" id="network-dot"></span><span id="freshness">No reading yet</span></div><button id="refresh-button" type="button"><svg class="refresh" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M20 11a8 8 0 1 0-2 6M20 4v7h-7" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg><span id="refresh-label">Refresh now</span></button></div>
+<div class="network-strip"><span><span class="meta-caption">WI-FI</span><strong id="network-name">--</strong></span><span><span class="meta-caption">DEVICE</span><a id="device-address">--</a></span><span class="network-note">Refreshes every 3 min</span></div>
+<details class="settings" id="settings"><summary>Device settings &amp; connection</summary><div class="settings-content"><div class="meta-row"><span>Wi-Fi network</span><strong id="ssid">--</strong></div><div class="meta-row"><span>Device address</span><strong id="ip">--</strong></div><div class="meta-row"><span>Screen rotation</span><strong id="rotation">Automatic</strong></div><div class="meta-row"><span>Device temperature</span><strong id="temperature">--</strong></div><div class="meta-row"><span>Technical status</span><strong><code id="technical-status">--</code></strong></div><div class="settings-actions"><a class="button" href="/setup-auth">Account credentials</a><a class="button" href="/wifi">Wi-Fi networks</a><form method="post" action="/boot-a"><button>Switch to ESPINFO</button></form><form method="post" action="/clear" id="erase-form"><button class="danger">Erase credentials</button></form></div><p class="help">Credentials stay encrypted on this device. Updates resume automatically after restart. Use this dashboard on your trusted local network.</p></div></details>
+<footer class="footer"><span>CODEX / USAGE MONITOR</span><span>STANDALONE · SLOT B</span></footer>
+<script type="application/json" id="initial-state">{{DATA}}</script>
+<script>
+(()=>{
+let state=JSON.parse(document.getElementById('initial-state').textContent),received=Date.now(),inFlight=false,refreshing=false,offline=false;
+const $=id=>document.getElementById(id),fmt=new Intl.DateTimeFormat(undefined,{weekday:'short',day:'numeric',month:'short',hour:'numeric',minute:'2-digit'});
+for(const id of ['short-card','weekly-card']){const meter=$(id).querySelector('.segments');for(let i=0;i<20;i++){const segment=document.createElement('span');segment.setAttribute('aria-hidden','true');meter.appendChild(segment)}}
+function duration(s){s=Math.max(0,Math.floor(s));const d=Math.floor(s/86400),h=Math.floor(s%86400/3600),m=Math.floor(s%3600/60);return d?`${d}d ${h}h`:h?`${h}h ${m}m`:m?`${m}m`:'< 1m'}
+function draw(){
+const elapsed=(Date.now()-received)/1000,now=Date.now()/1000;
+for(const [id,key] of [['short-card','short'],['weekly-card','weekly']]){
+ const card=$(id),w=state[key],valid=Boolean(w&&w.present&&Number.isFinite(w.left)),left=valid?Math.max(0,Math.min(100,w.left)):0,meter=card.querySelector('.segments');
+ card.style.setProperty('--quota-color',!valid?'#4b4b4b':left<=10?'#ff2a2a':left<=30?'#ffa500':'#29ae0b');
+ card.querySelector('.number').textContent=valid?Math.round(left):'--';
+ const lit=valid?Math.ceil(left/5):0;Array.from(meter.children).forEach((segment,i)=>segment.classList.toggle('lit',i<lit));
+ meter.setAttribute('aria-valuetext',valid?`${Math.round(left)} percent left`:'No reading available');if(valid)meter.setAttribute('aria-valuenow',left);else meter.removeAttribute('aria-valuenow');
+ $(key+'-reset').textContent=valid&&w.resetAt?(w.resetAt>now?duration(w.resetAt-now):'Reset due'):state.ready?'Awaiting data':'Connect account';
+ $(key+'-date').textContent=valid&&w.resetAt?fmt.format(new Date(w.resetAt*1000)):'';
+}
+const data=Boolean(state.short?.present||state.weekly?.present),ok=state.status==='Updated OK',connected=!offline&&Boolean(state.ip&&state.ip!=='0.0.0.0');
+$('plan').textContent=state.plan||'CODEX';$('migration-panel').hidden=!state.migrationRequired;$('setup-panel').hidden=Boolean(state.ready||state.migrationRequired);$('erase-form').hidden=!state.savedCredentials;
+$('refresh-button').disabled=!state.ready||inFlight;$('refresh-button').classList.toggle('busy',refreshing);$('refresh-label').textContent=refreshing?'Refreshing':'Refresh now';$('refresh-button').setAttribute('aria-busy',refreshing);
+$('connection').textContent=offline?'Device offline':!state.ready?'Account setup needed':ok?'Connected':data?'Saved reading / retrying':'Awaiting update';$('status-dot').classList.toggle('warn',offline||!ok);$('network-dot').classList.toggle('warn',!connected);
+$('freshness').textContent=data&&state.ageSeconds!=null?'Updated '+duration(state.ageSeconds+elapsed)+' ago':state.ready?'Waiting for the first reading':'Connect your account to begin';
+for(const id of ['ssid','network-name'])$(id).textContent=state.ssid||'Not connected';for(const id of ['ip','device-address'])$(id).textContent=state.ip||'--';
+$('technical-status').textContent=state.status||'Awaiting status';$('rotation').textContent=state.imu?'Automatic / '+(state.landscape?'landscape':'portrait'):'Landscape / sensor unavailable';
+const temp=Number.isFinite(state.temperature)?state.temperature.toFixed(1)+'°C':'Unavailable';$('temperature').textContent=temp;$('temperature-value').textContent=temp;
+}
+async function update(refresh=false){
+ if(inFlight||(!refresh&&document.hidden))return;inFlight=true;refreshing=refresh;draw();const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),refresh?45000:15000);
+ try{const response=await fetch(refresh?'/api/refresh':'/api/status',{method:refresh?'POST':'GET',cache:'no-store',signal:controller.signal});if(!response.ok)throw new Error('Unavailable');state=await response.json();received=Date.now();offline=false}catch(error){offline=true}finally{clearTimeout(timer);inFlight=false;refreshing=false;draw()}
+}
+$('refresh-button').onclick=()=>update(true);$('open-settings').onclick=()=>{$('settings').open=true};$('erase-form').onsubmit=()=>confirm('Erase the saved Codex credentials on this device? Wi-Fi and ESPINFO settings will stay.');
+setInterval(draw,1000);setInterval(()=>update(),15000);document.addEventListener('visibilitychange',()=>{if(!document.hidden)update()});draw();
+})();
+</script>

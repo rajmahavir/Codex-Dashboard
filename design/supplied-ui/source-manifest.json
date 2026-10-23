@@ -1,0 +1,12 @@
+{
+  "archive_sha256": "0f367314e4811757e0dc0fbf887cbc464687f01e7884e087b5383c4e34fdcaf6",
+  "original_files": {
+    "cx_font_hero.c": "8afb14f94663db4bbd89a747b4b274b6baca8af246eb9f1f2920e5605f0edf0f",
+    "CodexUi.c": "36f4866c9748b579f66f4f587eb1cf9d100c55a02a325fd4cbddc55e47717872",
+    "cx_font_lbl.c": "ea0ad2c492d29d4ae6b631f3057def87daeab4aec950395a6a14d4ea4b5c0ce4",
+    "cx_font_val.c": "51be3f0a011b24e3bfa9b55ee9ed82aa4dcee0c766e01aecb14cf34ddfa5aa3a",
+    "cx_font_num.c": "0ae968c11c6729a46be4afc8f952789ba2bff22a45a1c130e739c4ef22e69880",
+    "preview_landscape.png": "76f5c3567d8c27ddc357eb7f3dcc1a427c81bf7aece228b3f2318daeeca840bf",
+    "cx_font_pct.c": "e2ad2f5ebbcad6670076257700176475412a43dced904b8d62e91ded8f7f6b4d"
+  }
+}

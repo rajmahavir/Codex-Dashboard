@@ -1,0 +1,9 @@
+.local/
+build/
+backups/
+libraries/
+.pio/
+src/esp32_cert_bundle.h
+__pycache__/
+
+.DS_Store

@@ -1,0 +1,10 @@
+{
+  "source": "https://github.com/VolosR/WaveShareC6lvglexample/tree/main/NewYearExample",
+  "local_sha256": {
+    "ui_font_BIG.c": "8ff03aeb06699d50f9378d27e6fd2f73c5b02a0a4aba34c94112ccf0bf2457be",
+    "AGENCYB.TTF": "4fde694cc486b55266f7561c685fbd9153ea0003f0c0c39fc744b132051d40c5",
+    "agency_hero.c": "b8e71ce7354cff769b759166815e3b608adb338db3dc8a5850da256b4460fb65",
+    "ui_font_MID.c": "91edc60af1c3f1f22f45dcd8e53529f72adb53417977b65b65109a701592e125"
+  },
+  "status": "Local preview only; installed firmware unchanged"
+}
